@@ -52,7 +52,7 @@ func CreateSegmentFile(directory string, segmentId int) (*os.File, error) {
 // also verifies CRC32, returns only if it is valid
 func UnmarshalAndVerifyEntry(data []byte) (*types.WAL_Entry, error) {
 	var entry types.WAL_Entry
-	mustUnmarshal(data, &entry)
+	MustUnmarshal(data, &entry)
 
 	if !isValidCRC(&entry) {
 		return nil, fmt.Errorf("CRC mismatch: Data in the entry maybe be corrupted")

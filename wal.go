@@ -3,7 +3,6 @@ package wal
 import (
 	"bufio"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -12,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ThejasNU/wal/types"
 	"github.com/ThejasNU/wal/utils"
 )
 
@@ -100,79 +98,13 @@ func GetWAL(directory string, enableFsync bool, maxFileSize uint64, maxSegments 
 		cancel:              cancel,
 	}
 
-	if wal.lastSequenceNumber,err=wal.getLastSequenceNumber();err!=nil{
+	if wal.lastSequenceNumber, err = wal.getLastSequenceNumber(); err != nil {
 		return nil, err
 	}
 
 	go wal.keepSyncing()
 
 	return wal, nil
-}
-
-// goes through the current log file and returns the LSN
-func (wal *WAL) getLastSequenceNumber()(uint64, error){
-	lastEntry, err:= wal.getLastEntryInCurrentSegment()
-	if err!=nil{
-		return 0, err
-	}
-
-	if lastEntry!=nil{
-		return lastEntry.GetLogSequenceNumber(), nil
-	}
-
-	return 0,err
-}
-
-func (wal *WAL) getLastEntryInCurrentSegment() (*types.WAL_Entry, error){
-	file, err := os.OpenFile(wal.currentSegment.Name(), os.O_RDONLY, 0644)
-	if err!= nil{
-		return nil, err
-	}
-	defer file.Close()
-
-	var prevSize int32
-	var offset int64
-	var entry *types.WAL_Entry
-
-	for{
-		var size int32
-		if err:=binary.Read(file, binary.LittleEndian,size); err!=nil{
-			if err==io.EOF{
-				if offset == 0 {
-					return entry, nil
-				}
-
-				if _,err := file.Seek(offset, io.SeekStart); err !=nil{
-					return nil, err
-				}
-
-				data := make([]byte, prevSize)
-				if _, err = io.ReadFull(file,data); err!=nil{
-					return nil, err
-				}
-
-				entry, err = utils.UnmarshalAndVerifyEntry(data)
-				if err!= nil{
-					return nil, err
-				}
-
-				return entry, nil
-			}
-
-			return nil, err
-		}
-
-		offset, err = file.Seek(0, io.SeekCurrent)
-		prevSize = size
-		
-		if err!=nil{
-			return nil, err
-		}
-
-		if _, err = file.Seek(int64(size), io.SeekCurrent); err!=nil{
-			return nil, err
-		}
-	}
 }
 
 // keeps checking till timer runs out and flushes data to file
@@ -195,26 +127,18 @@ func (wal *WAL) keepSyncing() {
 	}
 }
 
-// writes in-memory buffer to the segment file in file system
-// if fsync is opted, syncs file to the disk
-func (wal *WAL) Flush() error {
-	if err := wal.bufferWriter.Flush(); err != nil {
-		return err
-	}
-
-	if wal.shouldFsync {
-		if err := wal.currentSegment.Sync(); err != nil {
-			return err
-		}
-	}
-
-	// reset the timer, since we just synced
-	wal.resetTimer()
-
-	return nil
-}
-
 // resets the synchronization timer
 func (wal *WAL) resetTimer() {
 	wal.flushTimer.Reset(utils.SyncInterval)
+}
+
+// flushes buffers to files and closes current wal instance
+func (wal *WAL) Close() error {
+	wal.cancel()
+
+	if err := wal.Flush(); err != nil {
+		return err
+	}
+
+	return wal.currentSegment.Close()
 }

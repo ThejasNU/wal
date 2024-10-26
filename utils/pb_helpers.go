@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func mustMarshal(entry *types.WAL_Entry) []byte {
+func MustMarshal(entry *types.WAL_Entry) []byte {
 	serializedEntry, err := proto.Marshal(entry)
 	
 	if err!=nil{
@@ -18,7 +18,7 @@ func mustMarshal(entry *types.WAL_Entry) []byte {
 	return serializedEntry
 }
 
-func mustUnmarshal(data []byte, entry *types.WAL_Entry){
+func MustUnmarshal(data []byte, entry *types.WAL_Entry){
 	err:= proto.Unmarshal(data, entry)
 
 	if err!=nil{

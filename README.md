@@ -1,2 +1,2 @@
-# wal
+# WAL
 Write Ahead Log implemented in Go
